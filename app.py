@@ -4,10 +4,7 @@ from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
 import re
 import time
-from urllib.parse import urlparse, parse_qs
 import json
-from PIL import Image
-from io import BytesIO
 
 # Initialize UserAgent
 ua = UserAgent()
@@ -16,7 +13,7 @@ def get_soup(url):
     """Get BeautifulSoup object with random user agent"""
     headers = {'User-Agent': ua.random}
     try:
-        response = requests.get(url, headers=headers, timeout=10)
+        response = requests.get(url, headers=headers, timeout=15)
         response.raise_for_status()
         return BeautifulSoup(response.text, 'html.parser')
     except Exception as e:
@@ -67,7 +64,7 @@ def scrape_unsplash(search_term, orientation='', color='', min_width=0, min_heig
         while len(images) < max_results:
             try:
                 headers = {'User-Agent': ua.random}
-                response = requests.get(base_url, params=params, headers=headers, timeout=15)
+                response = requests.get(base_url, params=params, headers=headers, timeout=20)
                 response.raise_for_status()
                 data = response.json()
                 
@@ -106,13 +103,14 @@ def scrape_unsplash(search_term, orientation='', color='', min_width=0, min_heig
                     
                 params['page'] += 1
                 progress_bar.progress(min(len(images)/max_results, 1.0))
-                time.sleep(0.5)  # Be polite
+                time.sleep(0.7)  # Be polite
                 
             except Exception as e:
                 st.error(f"Scraping error: {str(e)}")
                 break
     
-    progress_bar.empty()
+    if progress_bar is not None:
+        progress_bar.empty()
     return images[:max_results]
 
 # Streamlit UI
@@ -204,68 +202,58 @@ if st.button("✨ Scrape Images", use_container_width=True):
                     st.caption(f"🎨 Color: `{img['color']}`")
                     
                     # Download options
-                    st.download_button(
-                        label="💾 Download Regular",
-                        data=requests.get(img['url']).content,
-                        file_name=f"{img['id']}_regular.jpg",
-                        mime="image/jpeg",
-                        key=f"reg_{i}"
-                    )
-                    st.download_button(
-                        label="💾 Download Full",
-                        data=requests.get(img['full_url']).content,
-                        file_name=f"{img['id']}_full.jpg",
-                        mime="image/jpeg",
-                        key=f"full_{i}"
-                    )
-                    st.download_button(
-                        label="💾 Download RAW",
-                        data=requests.get(img['raw_url']).content,
-                        file_name=f"{img['id']}_raw.jpg",
-                        mime="image/jpeg",
-                        key=f"raw_{i}"
-                    )
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.download_button(
+                            label="Regular",
+                            data=requests.get(img['url']).content,
+                            file_name=f"{img['id']}_regular.jpg",
+                            mime="image/jpeg",
+                            key=f"reg_{i}",
+                            use_container_width=True
+                        )
+                    with col2:
+                        st.download_button(
+                            label="Full",
+                            data=requests.get(img['full_url']).content,
+                            file_name=f"{img['id']}_full.jpg",
+                            mime="image/jpeg",
+                            key=f"full_{i}",
+                            use_container_width=True
+                        )
+                    with col3:
+                        st.download_button(
+                            label="RAW",
+                            data=requests.get(img['raw_url']).content,
+                            file_name=f"{img['id']}_raw.jpg",
+                            mime="image/jpeg",
+                            key=f"raw_{i}",
+                            use_container_width=True
+                        )
 
 # How to use section
-with st.expander("ℹ️ How to use this scraper"):
+with st.expander("ℹ️ How to use this scraper & Technical Details"):
     st.markdown("""
-    **Advanced Features Explained:**
+    **Advanced Features:**
     
-    1. **AJAX API Handling**:
-       - Uses Unsplash's private JSON API (`/napi/search/photos`)
-       - Handles pagination automatically
-       - Processes structured JSON instead of HTML scraping
-       
-    2. **Advanced Filtering**:
-       - Orientation (Landscape/Portrait/Squarish)
-       - Color filtering (12 color options)
-       - Minimum dimension constraints
-       - Max results control
-       
-    3. **Polite Scraping Practices**:
-       - Random user agents with `fake-useragent`
-       - 500ms delay between requests
-       - Proper error handling
-       - Rate limiting awareness
-       
-    4. **Robust Data Extraction**:
-       - Direct access to multiple image resolutions
-       - Comprehensive metadata extraction
-       - Duplicate detection
-       
-    5. **Streamlit UI Features**:
-       - Responsive grid layout
-       - Expandable image cards
-       - Multiple download options
-       - Detailed metadata display
-       
-    **Technical Components:**
-    - `requests`: HTTP requests with custom headers
-    - `BeautifulSoup`: HTML parsing (though minimal due to JSON API)
-    - `fake-useragent`: Rotating user agents
-    - `PIL`: Image handling (indirectly via Streamlit)
-    - `re`: Regular expressions for data cleaning
-    - `json`: Direct JSON data parsing
+    - **AJAX API Handling**: Uses Unsplash's private JSON API
+    - **Advanced Filtering**: Orientation, color, dimensions
+    - **Polite Scraping**: Random user agents, delays, error handling
+    - **Rich Metadata**: Dimensions, color, likes, alt text
+    - **Multiple Resolutions**: Regular, Full, RAW download options
+    
+    **Technical Stack:**
+    - Python 3.9+ (Streamlit Cloud compatible)
+    - Streamlit 1.33.0
+    - BeautifulSoup 4.12.3
+    - Requests 2.32.2
+    - Fake-UserAgent 1.5.1
+    
+    **Deployment Notes:**
+    - Fixed Pillow dependency for Python 3.13 compatibility
+    - Increased timeout values for reliability
+    - Enhanced error handling
+    - Optimized UI layout
     """)
     
     st.code("""
